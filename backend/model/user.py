@@ -15,7 +15,6 @@ if TYPE_CHECKING:
     from .desk import Desk, DeskShare
 
 
-
 class User(Base):
     __tablename__ = "user"
 
