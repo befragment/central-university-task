@@ -12,7 +12,7 @@ services:
       timeout: 3s
       retries: 10
     ports:
-      - "5432:5432"
+      - "5433:5432"
 
   # frontend:
   #   container_name: cu-front
@@ -33,6 +33,8 @@ services:
       postgres:
         condition: service_healthy
       migrate:
+        condition: service_completed_successfully
+      seed:
         condition: service_completed_successfully
     env_file:
       - .env
@@ -55,4 +57,26 @@ services:
       - .env
     working_dir: /app
     command: [ "sh", "-c", "alembic upgrade head" ]
+    restart: "no"
+  seed:
+    container_name: cu-seed
+    image: postgres:16
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    environment:
+      PGHOST: postgres
+      PGPORT: ${POSTGRES_PORT:-5432}
+      PGUSER: ${POSTGRES_USER}
+      PGPASSWORD: ${POSTGRES_PASSWORD}
+      PGDATABASE: ${POSTGRES_DB}
+    volumes:
+      - ./seed:/seed:ro
+    command: >
+      sh -c '
+        for f in /seed/*.sql; do
+          echo "Applying $$f..."
+          psql -f "$$f"
+        done
+      '
     restart: "no"
