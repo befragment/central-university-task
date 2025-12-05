@@ -1,32 +1,63 @@
-from fastapi import APIRouter
+from http import HTTPStatus
+from fastapi import APIRouter, Query
 
 from api.dto import (
+    Desk,
     DeskCreateRequest, 
-    DeskCreateResponse, 
     DeskDeleteRequest, 
-    DeskDeleteResponse, 
+    DeskDeleteResponse,
+    DesksResponseWithTotal,
+    SharedDesksWithTotal, 
     DeskUpdateRequest,
-    DeskUpdateResponse,
+    Share, Shares,
 )
 
-router = APIRouter(prefix="/desk", tags=["desk"])
+router = APIRouter(prefix="/desks", tags=["desks"])
 
-@router.post("/create", response_model=DeskCreateResponse)
+@router.post("/", response_model=Desk)
 async def create_desk(
     request: DeskCreateRequest,
 ):
-    return DeskCreateResponse
+    return Desk
 
 
-@router.delete("/delete", response_model=DeskDeleteResponse)
+@router.delete("/", response_model=DeskDeleteResponse)
 async def delete_desk(
     request: DeskDeleteRequest
 ):
     return DeskDeleteResponse
 
 
-@router.patch("/update", response_model=DeskUpdateResponse)
-async def delete_desk(
+@router.patch("/{desk_id}", response_model=Desk)
+async def update_desk(
     request: DeskUpdateRequest
 ):
-    return DeskUpdateResponse
+    return Desk
+
+
+@router.get("/", response_model=DesksResponseWithTotal)
+async def get_my_desks():
+    return DesksResponseWithTotal
+
+
+@router.get("/shared", response_model=SharedDesksWithTotal)
+async def get_shared_desks(
+    limit: int = Query(5, ge=0, le=100),
+    offset: int = Query(0, ge=0),
+):
+    return SharedDesksWithTotal
+
+
+@router.get("/{desk_id}/shares", response_model=Shares)
+async def get_shares_of_desk():
+    return Shares
+
+
+@router.post("/{desk_id}/shares", response_model=Share)
+async def share_desk_with_user():
+    return Share
+
+
+@router.delete("/{desk_id}/shares/{user_id}", status_code=HTTPStatus.NO_CONTENT)
+async def revoke_desk_access():
+    return

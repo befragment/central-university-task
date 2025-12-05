@@ -1,48 +1,106 @@
 import typing
+import datetime
 
-from pydantic import BaseModel, EmailStr, Field, UUID4
+from pydantic import BaseModel, EmailStr, UUID4
 
 class LoginRequest(BaseModel):
-    email: EmailStr = Field(..., description="The email of the user")
-    password: str = Field(..., description="The password of the user")
+    email: EmailStr
+    password: str
 
 
 class RegisterRequest(BaseModel):
-    email: EmailStr = Field(..., description="The email of the user")
-    password: str = Field(..., description="The password of the user")
-    name: str = Field(..., description="The name of the user")
+    email: EmailStr
+    password: str
+    name: str
 
 
 class RefreshTokenRequest(BaseModel):
-    refresh_token: str = Field(..., description="The refresh token")
+    refresh_token: str 
 
 
 class TokenResponse(BaseModel):
-    access_token: str = Field(..., description="The access token")
-    refresh_token: str = Field(..., description="The refresh token")
+    access_token: str
+    refresh_token: str 
 
 
 class DeskCreateRequest(BaseModel):
-    name: str = Field(..., description="Desk name")
+    name: str
 
 
 class DeskCreateResponse(BaseModel):
-    name: str = Field(..., description="Desk name")
+    name: str
 
 
 class DeskDeleteRequest(BaseModel):
-    id: UUID4 = Field(..., description="Desk id")
+    id: UUID4
 
 
 class DeskDeleteResponse(BaseModel):
-    id: UUID4 = Field(..., description="Desk id")
+    id: UUID4
 
 
 class DeskUpdateRequest(BaseModel):
-    id: UUID4 = Field(..., description="Desk id")
-    name: typing.Optional[str | None] = Field(..., description="Desk name")
+    name: typing.Optional[str | None]
 
 
 class DeskUpdateResponse(BaseModel):
-    id: UUID4 = Field(..., description="Desk id")
-    name: typing.Optional[str | None] = Field(..., description="Desk name")
+    id: UUID4
+    name: typing.Optional[str | None]
+
+
+class Desk(BaseModel):
+    id: UUID4
+    name: str
+    owner_id: UUID4
+    created_at: datetime.datetime
+    updated_at: datetime.datetime
+
+
+class DesksResponseWithTotal(BaseModel):
+    desks: list[Desk]
+    total: int
+
+
+class User(BaseModel):
+    id: UUID4
+    name: str
+    email: EmailStr
+
+
+class Users(BaseModel):
+    users: list[User]
+
+
+class DeskOwner(BaseModel):
+    id: UUID4
+    name: str
+
+
+class SharedDesk(BaseModel):
+    # This entity is still desk
+    id: UUID4
+    name: str
+    owner: DeskOwner
+    shared_at: datetime.datetime
+    created_at: datetime.datetime
+    updated_at: datetime.datetime
+
+
+class SharedDesksWithTotal(BaseModel):
+    shares: list[SharedDesk]
+    total: int
+
+
+class Share(BaseModel):
+    # Share as an entity 
+    id: UUID4
+    user: User
+    created_at: datetime.datetime
+
+
+class Shares(BaseModel):
+    shares: list[Share]
+
+
+class UserIDRequest(BaseModel):
+    id: UUID4
