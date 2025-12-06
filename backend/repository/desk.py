@@ -1,7 +1,7 @@
 from uuid import UUID
 from datetime import date
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, update, delete
+from sqlalchemy import select, update, delete, exists
 from model.desk import Desk, DeskDetail, DeskShare
 
 
@@ -23,6 +23,17 @@ class DeskRepository:
         stmt = select(Desk).where(Desk.owner_id == user_id)
         result = await self.session.execute(stmt)
         return list(result.scalars())
+    
+    async def is_owned_by_user(self, desk_id: UUID, user_id: UUID) -> bool:
+        stmt = select(
+            exists().where(
+                Desk.id == desk_id,
+                Desk.owner_id == user_id,
+            )
+        )
+        result = await self.session.execute(stmt)
+        return bool(result.scalar())
+
 
     async def update(self, desk_id: UUID, name: str | None = None) -> bool:
         values = {"updated_at": date.today()}

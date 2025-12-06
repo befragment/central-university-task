@@ -1,11 +1,12 @@
 from fastapi import APIRouter, Query, Depends
 
 from api.dependencies import get_current_user
-from api.dto import User, Users
+from api.dto import UserDTO, Users
+from model import User
 
 router = APIRouter(prefix="/users", tags=["users"])
 
-@router.get("/me", response_model=User)
+@router.get("/me", response_model=UserDTO)
 async def get_me(
     current_user: User = Depends(get_current_user)
 ):

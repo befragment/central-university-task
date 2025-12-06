@@ -21,7 +21,7 @@ from model.user import User as UserModel
 from model.session import Session as SessionModel
 
 from api.dto import (
-    User,
+    UserDTO,
     Tokens,
     LoginRequest,
     LoginResponse, 
@@ -75,7 +75,7 @@ async def login(
     refresh_token = create_refresh_token(db_session.id)
 
     return LoginResponse(
-        user=User(  # если это твой Pydantic User DTO
+        user=UserDTO(  # если это твой Pydantic User DTO
             id=user.id,
             name=user.name,
             email=user.email,
