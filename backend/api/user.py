@@ -23,7 +23,6 @@ async def search_users(
     user_repo: UserRepository = Depends(get_user_repo),
 ):
     if not q or len(q.strip()) == 0:
-        # Если q пустой — возвращаем всех пользователей
         users = await user_repo.get_all(limit=limit)
     else:
         users = await user_repo.search_by_email(q.strip(), limit=limit)

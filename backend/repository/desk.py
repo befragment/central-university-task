@@ -46,10 +46,23 @@ class DeskRepository:
         return result.rowcount > 0
 
     async def delete(self, desk_id: UUID) -> bool:
-        stmt = delete(Desk).where(Desk.id == desk_id)
-        result = await self.session.execute(stmt)
+        # 1) удалить шаринги
+        await self.session.execute(
+            delete(DeskShare).where(DeskShare.desk_id == desk_id)
+        )
+
+        # 2) удалить стикеры/детали
+        await self.session.execute(
+            delete(DeskDetail).where(DeskDetail.desk_id == desk_id)
+        )
+
+        # 3) удалить саму доску
+        result = await self.session.execute(
+            delete(Desk).where(Desk.id == desk_id)
+        )
+
         await self.session.commit()
-        return result.rowcount > 0
+        return (result.rowcount or 0) > 0
     
     async def count_owned_by_user(self, user_id: UUID) -> int:
         stmt = select(func.count()).select_from(
