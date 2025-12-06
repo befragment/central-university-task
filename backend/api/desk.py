@@ -4,9 +4,9 @@ from http import HTTPStatus
 from fastapi import APIRouter, Query, Depends, HTTPException, Response
 
 from model.user import User as UserORM
-from dependencies import get_current_user, get_desk_repo
+from api.dependencies import get_current_user, get_desk_repo
 from api.dto import (
-    Desk,
+    Desk, DeskOut, 
     DeskCreateRequest, 
     DesksResponseWithTotal,
     DeskUpdateRequest,
@@ -96,33 +96,35 @@ async def get_my_desks(
         offset=offset,
     )
 
+    desks_out = [DeskOut.model_validate(d) for d in desks]
+
     return DesksResponseWithTotal(
-        desks=desks,
+        desks=desks_out,
         total=total,
     )
 
-@router.get("/shared", response_model=SharedDesksWithTotal)
-async def get_shared_desks(
-    limit: int = Query(5, ge=0, le=100),
-    offset: int = Query(0, ge=0),
-):
-    return SharedDesksWithTotal
+# @router.get("/shared", response_model=SharedDesksWithTotal)
+# async def get_shared_desks(
+#     limit: int = Query(5, ge=0, le=100),
+#     offset: int = Query(0, ge=0),
+# ):
+#     return SharedDesksWithTotal
 
 
-@router.get("/{desk_id}/shares", response_model=Shares)
-async def get_shares_of_desk():
-    return Shares
+# @router.get("/{desk_id}/shares", response_model=Shares)
+# async def get_shares_of_desk():
+#     return Shares
 
 
-@router.post("/{desk_id}/shares", response_model=Share)
-async def share_desk_with_user():
-    return Share
+# @router.post("/{desk_id}/shares", response_model=Share)
+# async def share_desk_with_user():
+#     return Share
 
 
-@router.delete("/{desk_id}/shares/{user_id}", status_code=HTTPStatus.NO_CONTENT)
-async def revoke_desk_access(
-    desk_id: int,
-    user_id: int,
-    current_user: User = Depends(get_current_user)
-):
-    return
+# @router.delete("/{desk_id}/shares/{user_id}", status_code=HTTPStatus.NO_CONTENT)
+# async def revoke_desk_access(
+#     desk_id: int,
+#     user_id: int,
+#     current_user: User = Depends(get_current_user)
+# ):
+#     return
