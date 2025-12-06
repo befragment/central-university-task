@@ -53,10 +53,8 @@ async def register(
         pass_hash=hashed_pw,
     )
     await user_repo.create(new_user)
-    return  # 201 Created — no content
+    # 201 Created — no content
 
-
-from fastapi import Depends, HTTPException, status
 
 @router.post("/login", response_model=LoginResponse)
 async def login(
@@ -123,6 +121,7 @@ async def refresh(
     refresh_token = create_refresh_token(new_session.id)
 
     return Tokens(access_token=access_token, refresh_token=refresh_token)
+
 
 @router.post("/logout", status_code=status.HTTP_204_NO_CONTENT)
 async def logout(

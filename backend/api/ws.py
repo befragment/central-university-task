@@ -15,7 +15,7 @@ from api.utils import sticker_to_dict
 router = APIRouter(tags=["websocket"])
 
 
-@router.websocket("/desk/{desk_id}")
+@router.websocket("/{desk_id}")
 async def desk_ws(
         ws: WebSocket,
         desk_id: str,
