@@ -6,7 +6,7 @@ from fastapi import APIRouter, Query, Depends, HTTPException, Response
 from model.user import User as UserORM
 from api.dependencies import get_current_user, get_desk_repo
 from api.dto import (
-    Desk, DeskOut, 
+    Desk, 
     DeskCreateRequest, 
     DesksResponseWithTotal,
     DeskUpdateRequest,
@@ -96,10 +96,8 @@ async def get_my_desks(
         offset=offset,
     )
 
-    desks_out = [DeskOut.model_validate(d) for d in desks]
-
     return DesksResponseWithTotal(
-        desks=desks_out,
+        desks=desks,
         total=total,
     )
 

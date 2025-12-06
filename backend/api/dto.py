@@ -72,13 +72,6 @@ class Desk(BaseModel):
     created_at: datetime.datetime
     updated_at: datetime.datetime
 
-class DeskOut(BaseModel):
-    id: UUID4
-    name: str
-    owner_id: UUID4
-    created_at: datetime.datetime
-    updated_at: datetime.datetime
-
     model_config = ConfigDict(from_attributes=True)
 
 class DesksResponseWithTotal(BaseModel):
