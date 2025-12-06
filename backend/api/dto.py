@@ -1,7 +1,7 @@
 import typing
 import datetime
 
-from pydantic import BaseModel, EmailStr, UUID4
+from pydantic import BaseModel, EmailStr, UUID4, ConfigDict
 
 
 class LoginRequest(BaseModel):
@@ -72,6 +72,7 @@ class Desk(BaseModel):
     created_at: datetime.datetime
     updated_at: datetime.datetime
 
+    model_config = ConfigDict(from_attributes=True)
 
 class DesksResponseWithTotal(BaseModel):
     desks: list[Desk]
