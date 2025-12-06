@@ -1,15 +1,11 @@
 from uuid import UUID
 from http import HTTPStatus
-from fastapi import APIRouter, Depends, Query, HTTPException
+
+from fastapi import APIRouter, Depends, HTTPException, Response
+from pydantic import UUID4
 
 from api.dependencies import get_current_user, get_desk_repo, get_deskshare_repo
-from pydantic import UUID4
-from http import HTTPStatus
-
-from fastapi import APIRouter, Query, Depends, HTTPException, Response
-
-from model.user import User as UserORM
-from api.dependencies import get_current_user, get_desk_repo
+from model import User as UserORM
 from api.dto import (
     Desk, 
     DeskCreateRequest, 
@@ -18,12 +14,11 @@ from api.dto import (
     Share, Shares,
     UserDTO
 )
-from model import User
-from repository import DeskRepository
-from repository import DeskShareRepository
+from repository import (
+    DeskRepository,
+    DeskShareRepository,
 )
 
-from repository import DeskRepository
 
 router = APIRouter(prefix="/desks", tags=["desks"])
 
@@ -80,11 +75,14 @@ async def update_desk(
     
     if desk.owner_id != current_user.id:
         raise HTTPException(status_code=HTTPStatus.FORBIDDEN)
+    
+    return 
+
 
 @router.get("/{desk_id}/shares", response_model=Shares)
 async def get_desk_shares(
     desk_id: UUID,
-    current_user: User = Depends(get_current_user),
+    current_user: UserORM= Depends(get_current_user),
     desk_repo: DeskRepository = Depends(get_desk_repo),
     deskshare_repo: DeskShareRepository = Depends(get_deskshare_repo),
 ):
@@ -109,14 +107,12 @@ async def get_desk_shares(
         ]
     )
 
-    if not result:
-        raise HTTPException(status_code=HTTPStatus.NOT_FOUND)
 
 @router.post("/{desk_id}/shares", response_model=Share)
 async def share_desk_with_user(
     desk_id: UUID,
     user_id: UUID,
-    current_user: User = Depends(get_current_user),
+    current_user: UserORM = Depends(get_current_user),
     desk_repo: DeskRepository = Depends(get_desk_repo),
     deskshare_repo: DeskShareRepository = Depends(get_deskshare_repo)
 ):
@@ -141,7 +137,7 @@ async def share_desk_with_user(
 async def revoke_desk_access(
     desk_id: UUID,
     user_id: UUID,
-    current_user: User = Depends(get_current_user),
+    current_user: UserORM = Depends(get_current_user),
     desk_repo: DeskRepository = Depends(get_desk_repo),
     deskshare_repo: DeskShareRepository = Depends(get_deskshare_repo)
 ):

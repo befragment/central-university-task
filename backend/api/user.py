@@ -3,7 +3,7 @@ from fastapi import APIRouter, Query, Depends
 from api.dependencies import get_current_user
 from api.dto import UserDTO, Users
 from model import User
-from api.dto import User, Users
+from api.dto import UserDTO, Users
 from api.dependencies import get_user_repo, get_current_user
 from repository.user import UserRepository
 
@@ -18,9 +18,9 @@ async def get_me(
 
 @router.get("/search", response_model=Users)
 async def search_users(
-        q: str | None = Query(default=None),
-        limit: int = Query(default=10, ge=1, le=100),
-        user_repo: UserRepository = Depends(get_user_repo),
+    q: str | None = Query(default=None),
+    limit: int = Query(default=10, ge=1, le=100),
+    user_repo: UserRepository = Depends(get_user_repo),
 ):
     if not q or len(q.strip()) == 0:
         # Если q пустой — возвращаем всех пользователей
