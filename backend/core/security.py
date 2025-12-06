@@ -1,5 +1,6 @@
 from datetime import datetime, timedelta, timezone
 from typing import Any, Dict
+from uuid import UUID
 
 import jwt
 from passlib.context import CryptContext
@@ -9,28 +10,27 @@ from core.config import settings
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 
-def create_access_token(
-    data: Dict[str, Any], expires_delta: timedelta | None = None
-) -> str:
-    to_encode = data.copy()
-    if expires_delta:
-        expire = datetime.now(timezone.utc) + expires_delta
-    else:
-        expire = datetime.now(timezone.utc) + timedelta(
-            seconds=settings.ACCESS_TOKEN_TTL
-        )
-
-    to_encode.update({"exp": expire, "type": "access"})
-    encoded_jwt = jwt.encode(to_encode, settings.JWT_SECRET, algorithm=settings.JWT_ALG)
-    return encoded_jwt
+def create_access_token(user_id: UUID, session_id: UUID) -> str:
+    expire = datetime.now(timezone.utc) + timedelta(seconds=settings.ACCESS_TOKEN_TTL)
+    to_encode = {
+        "user_id": str(user_id),
+        "session_id": str(session_id),
+        "exp": expire,
+        "iat": datetime.now(timezone.utc),
+        "type": "access",
+    }
+    return jwt.encode(to_encode, settings.JWT_SECRET, algorithm=settings.JWT_ALG)
 
 
-def create_refresh_token(data: Dict[str, Any]) -> str:
-    to_encode = data.copy()
+def create_refresh_token(session_id: UUID) -> str:
     expire = datetime.now(timezone.utc) + timedelta(seconds=settings.REFRESH_TOKEN_TTL)
-    to_encode.update({"exp": expire, "type": "refresh"})
-    encoded_jwt = jwt.encode(to_encode, settings.JWT_SECRET, algorithm=settings.JWT_ALG)
-    return encoded_jwt
+    to_encode = {
+        "session_id": str(session_id),
+        "exp": expire,
+        "iat": datetime.now(timezone.utc),
+        "type": "refresh",
+    }
+    return jwt.encode(to_encode, settings.JWT_SECRET, algorithm=settings.JWT_ALG)
 
 
 def verify_token(token: str, token_type: str = "access") -> Dict[str, Any] | None:

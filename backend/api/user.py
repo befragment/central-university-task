@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Query
 
-from api.dto import User
+from api.dto import User, Users
 
 router = APIRouter(prefix="/users", tags=["users"])
 
@@ -9,7 +9,7 @@ async def get_me():
     return User
 
 
-@router.get("/search")
+@router.get("/search", response_model=Users)
 async def search_users(
     q: str | None = Query(default=None),
 ):

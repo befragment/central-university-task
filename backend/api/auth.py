@@ -21,7 +21,14 @@ from repository.session import SessionRepository
 from model.user import User as UserModel
 from model.session import Session as SessionModel
 
-from api.dto import LoginRequest, RegisterRequest, TokenResponse, RefreshTokenRequest
+from api.dto import (
+    Tokens,
+    LoginRequest,
+    LoginResponse, 
+    RegisterRequest, 
+    LoginResponse, 
+    RefreshTokenRequest
+)
 
 
 router = APIRouter(prefix="/auth", tags=["auth"])
@@ -85,7 +92,7 @@ async def login(
     )
 
 
-@router.post("/refresh", response_model=TokenResponse)
+@router.post("/refresh", response_model=Tokens)
 async def refresh(
     request: RefreshTokenRequest,
     session: Annotated[AsyncSession, Depends(get_db)],
