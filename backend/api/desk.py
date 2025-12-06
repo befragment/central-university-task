@@ -1,6 +1,7 @@
 from http import HTTPStatus
-from fastapi import APIRouter, Query
+from fastapi import APIRouter, Depends, Query
 
+from api.dependencies import get_current_user
 from api.dto import (
     Desk,
     DeskCreateRequest, 
@@ -11,6 +12,7 @@ from api.dto import (
     DeskUpdateRequest,
     Share, Shares,
 )
+from model import User
 
 router = APIRouter(prefix="/desks", tags=["desks"])
 
@@ -23,7 +25,8 @@ async def create_desk(
 
 @router.delete("/", response_model=DeskDeleteResponse)
 async def delete_desk(
-    request: DeskDeleteRequest
+    request: DeskDeleteRequest,
+    current_user: User = Depends(get_current_user)
 ):
     return DeskDeleteResponse
 
@@ -59,5 +62,9 @@ async def share_desk_with_user():
 
 
 @router.delete("/{desk_id}/shares/{user_id}", status_code=HTTPStatus.NO_CONTENT)
-async def revoke_desk_access():
-    return
+async def revoke_desk_access(
+    desk_id: int,
+    user_id: int,
+    current_user: User = Depends(get_current_user)
+):
+    ...
