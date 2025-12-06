@@ -1,92 +1,243 @@
-from fastapi import APIRouter, WebSocket, WebSocketDisconnect
+import json
+import uuid
+from datetime import date
+
+from fastapi import APIRouter, WebSocket, WebSocketDisconnect, Query
 
 from core.connmanager import manager
+from core.security import verify_token
+from core.database import async_session_factory
+from repository.desk_detail import DeskDetailRepository
+from repository.desk_share import DeskShareRepository
+from model.desk import DeskDetail
 
-router = APIRouter(prefix="/desk", tags=["desk"])
+router = APIRouter(tags=["websocket"])
 
 
-@router.websocket("/desk/{desk_id}")
+def sticker_to_dict(sticker: DeskDetail) -> dict:
+    """Convert DeskDetail model to dict for JSON response."""
+    return {
+        "id": str(sticker.id),
+        "coord": json.loads(sticker.coord) if isinstance(sticker.coord, str) else sticker.coord,
+        "size": json.loads(sticker.size) if isinstance(sticker.size, str) else sticker.size,
+        "color": sticker.color,
+        "text": sticker.text,
+    }
+
+
+@router.websocket("/ws/desk/{desk_id}")
 async def desk_ws(
     ws: WebSocket,
     desk_id: str,
-    # user = Depends(get_current_user_ws),
+    token: str = Query(...),
 ):
-    # 1) проверить доступ (owner/share)
-    # if not await user_has_access(user.id, desk_id):
-    #     await ws.close(code=1008)
-    #     return
+    # 1. Verify token
+    payload = verify_token(token, "access")
+    if not payload:
+        await ws.close(code=4001, reason="Invalid token")
+        return
 
-    await manager.connect(desk_id, ws)
+    user_id_str = payload.get("user_id")
+    if not user_id_str:
+        await ws.close(code=4001, reason="Invalid token payload")
+        return
 
-    stickers = []  # TODO: загрузить из БД desk_detail по desk_id
-    await ws.send_json({
-        "event": "desk:init",
-        "data": {"stickers": stickers},
-    })
+    try:
+        user_id = uuid.UUID(user_id_str)
+        desk_uuid = uuid.UUID(desk_id)
+    except ValueError:
+        await ws.close(code=4000, reason="Invalid UUID format")
+        return
 
+    # 2. Check access
+    async with async_session_factory() as session:
+        share_repo = DeskShareRepository(session)
+        has_access = await share_repo.has_access(user_id, desk_uuid)
+
+        if not has_access:
+            await ws.close(code=4003, reason="Access denied")
+            return
+
+        # 3. Accept connection
+        await manager.connect(desk_id, ws)
+
+        # 4. Load and send stickers
+        detail_repo = DeskDetailRepository(session)
+        stickers = await detail_repo.get_by_desk_id(desk_uuid)
+        stickers_data = [sticker_to_dict(s) for s in stickers]
+
+        await ws.send_json({
+            "event": "desk:init",
+            "data": {"stickers": stickers_data},
+        })
+
+    # 5. Listen for events
     try:
         while True:
             msg = await ws.receive_json()
             event = msg.get("event")
             data = msg.get("data") or {}
 
-            if event == "sticker:created":
-                temp_id = data.get("temp_id")
+            async with async_session_factory() as session:
+                detail_repo = DeskDetailRepository(session)
 
-                sticker = {  # этот объект придет с фронта
-                    "id": "server-uuid",
-                    "coord": data.get("coord"),
-                    "size": data.get("size"),
-                    "color": data.get("color", "#FFEB3B"),
-                    "text": data.get("text", ""),
-                }
-
-                # TODO: save to database
-
-                await manager.broadcast_to_desk(desk_id, {
-                    "event": "sticker:created",
-                    "data": {"temp_id": temp_id, "sticker": sticker},
-                })
-                continue
-
-            if event == "sticker:updated":
-                sticker_id = data.get("sticker_id")
-                if not sticker_id:
-                    await ws.send_json({
-                        "event": "error",
-                        "data": {"code": "VALIDATION_ERROR", "message": "sticker_id required"},
-                    })
+                if event == "sticker:create":
+                    await handle_sticker_create(
+                        ws, desk_id, desk_uuid, data, detail_repo
+                    )
                     continue
 
-                # TODO: update sticker
-
-                await manager.broadcast_to_desk(desk_id, {
-                    "event": "sticker:updated",
-                    "data": data,
-                }, exclude=None)
-                continue
-
-            if event == "sticker:deleted":
-                sticker_id = data.get("sticker_id")
-                if not sticker_id:
-                    await ws.send_json({
-                        "event": "error",
-                        "data": {"code": "VALIDATION_ERROR", "message": "sticker_id required"},
-                    })
+                if event == "sticker:update":
+                    await handle_sticker_update(
+                        ws, desk_id, desk_uuid, data, detail_repo
+                    )
                     continue
 
-                # TODO: delete sticker
-                
-                await manager.broadcast_to_desk(desk_id, {
-                    "event": "sticker:deleted",
-                    "data": {"sticker_id": sticker_id},
-                })
-                continue
+                if event == "sticker:delete":
+                    await handle_sticker_delete(
+                        ws, desk_id, desk_uuid, data, detail_repo
+                    )
+                    continue
 
-            await ws.send_json({
-                "event": "error",
-                "data": {"code": "UNKNOWN_EVENT", "message": "Unknown event"},
-            })
+                await ws.send_json({
+                    "event": "error",
+                    "data": {"code": "UNKNOWN_EVENT", "message": f"Unknown event: {event}"},
+                })
 
     except WebSocketDisconnect:
         manager.disconnect(desk_id, ws)
+    except Exception as e:
+        manager.disconnect(desk_id, ws)
+        raise
+
+
+async def handle_sticker_create(
+    ws: WebSocket,
+    desk_id: str,
+    desk_uuid: uuid.UUID,
+    data: dict,
+    repo: DeskDetailRepository,
+):
+    temp_id = data.get("temp_id")
+    coord = data.get("coord", {"x": 0, "y": 0})
+    size = data.get("size", {"width": 150, "height": 100})
+    color = data.get("color", "#FFEB3B")
+    text = data.get("text", "")
+
+    sticker = DeskDetail(
+        id=uuid.uuid4(),
+        desk_id=desk_uuid,
+        coord=json.dumps(coord),
+        size=json.dumps(size),
+        color=color,
+        text=text,
+        created_at=date.today(),
+        updated_at=date.today(),
+    )
+
+    sticker = await repo.create(sticker)
+
+    await manager.broadcast_to_desk(desk_id, {
+        "event": "sticker:created",
+        "data": {
+            "temp_id": temp_id,
+            "sticker": sticker_to_dict(sticker),
+        },
+    })
+
+
+async def handle_sticker_update(
+    ws: WebSocket,
+    desk_id: str,
+    desk_uuid: uuid.UUID,
+    data: dict,
+    repo: DeskDetailRepository,
+):
+    sticker_id_str = data.get("sticker_id")
+    if not sticker_id_str:
+        await ws.send_json({
+            "event": "error",
+            "data": {"code": "VALIDATION_ERROR", "message": "sticker_id required"},
+        })
+        return
+
+    try:
+        sticker_id = uuid.UUID(sticker_id_str)
+    except ValueError:
+        await ws.send_json({
+            "event": "error",
+            "data": {"code": "VALIDATION_ERROR", "message": "Invalid sticker_id format"},
+        })
+        return
+
+    sticker = await repo.get_by_id(sticker_id)
+    if not sticker or sticker.desk_id != desk_uuid:
+        await ws.send_json({
+            "event": "error",
+            "data": {"code": "NOT_FOUND", "message": "Sticker not found"},
+        })
+        return
+
+    # Update fields if provided
+    if "coord" in data:
+        sticker.coord = json.dumps(data["coord"])
+    if "size" in data:
+        sticker.size = json.dumps(data["size"])
+    if "color" in data:
+        sticker.color = data["color"]
+    if "text" in data:
+        sticker.text = data["text"]
+
+    sticker.updated_at = date.today()
+    await repo.update(sticker)
+
+    await manager.broadcast_to_desk(desk_id, {
+        "event": "sticker:updated",
+        "data": {
+            "sticker_id": str(sticker_id),
+            "coord": json.loads(sticker.coord),
+            "size": json.loads(sticker.size),
+            "color": sticker.color,
+            "text": sticker.text,
+        },
+    })
+
+
+async def handle_sticker_delete(
+    ws: WebSocket,
+    desk_id: str,
+    desk_uuid: uuid.UUID,
+    data: dict,
+    repo: DeskDetailRepository,
+):
+    sticker_id_str = data.get("sticker_id")
+    if not sticker_id_str:
+        await ws.send_json({
+            "event": "error",
+            "data": {"code": "VALIDATION_ERROR", "message": "sticker_id required"},
+        })
+        return
+
+    try:
+        sticker_id = uuid.UUID(sticker_id_str)
+    except ValueError:
+        await ws.send_json({
+            "event": "error",
+            "data": {"code": "VALIDATION_ERROR", "message": "Invalid sticker_id format"},
+        })
+        return
+
+    sticker = await repo.get_by_id(sticker_id)
+    if not sticker or sticker.desk_id != desk_uuid:
+        await ws.send_json({
+            "event": "error",
+            "data": {"code": "NOT_FOUND", "message": "Sticker not found"},
+        })
+        return
+
+    await repo.delete(sticker)
+
+    await manager.broadcast_to_desk(desk_id, {
+        "event": "sticker:deleted",
+        "data": {"sticker_id": str(sticker_id)},
+    })
