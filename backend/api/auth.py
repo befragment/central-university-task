@@ -1,33 +1,40 @@
+from http import HTTPStatus
 from fastapi import APIRouter
 
-from api.dto import LoginRequest, RegisterRequest, TokenResponse, RefreshTokenRequest
+from api.dto import (
+    Tokens,
+    LoginRequest,
+    LoginResponse, 
+    RegisterRequest, 
+    LoginResponse, 
+    RefreshTokenRequest
+)
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
-
-@router.post("/login", response_model=TokenResponse)
+@router.post("/login", response_model=LoginResponse)
 async def login(
     request: LoginRequest,
-) -> TokenResponse:
-    return TokenResponse
+) -> LoginResponse:
+    return LoginResponse
 
 
-@router.post("/register", response_model=TokenResponse)
+@router.post("/register", status_code=HTTPStatus.NO_CONTENT)
 async def register(
     request: RegisterRequest,
-) -> TokenResponse:
-    return TokenResponse
+):
+    return 
 
 
-@router.post("/refresh", response_model=TokenResponse)
+@router.post("/refresh", response_model=Tokens)
 async def refresh(
     request: RefreshTokenRequest,
-) -> TokenResponse:
-    return TokenResponse
+) -> Tokens:
+    return Tokens
 
 
-@router.post("/logout", response_model=str)
+@router.post("/logout", status_code=HTTPStatus.NO_CONTENT)
 async def logout(
     token: str,
-) -> TokenResponse:
-    return "logout"
+):
+    return 

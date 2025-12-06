@@ -1,6 +1,8 @@
-from fastapi import APIRouter, WebSocket, WebSocketDisconnect
+import uuid
+from fastapi import APIRouter, Query, WebSocket, WebSocketDisconnect
 
 from core.connmanager import manager
+from core.security import verify_token
 
 router = APIRouter(prefix="/desk", tags=["desk"])
 
@@ -9,12 +11,30 @@ router = APIRouter(prefix="/desk", tags=["desk"])
 async def desk_ws(
     ws: WebSocket,
     desk_id: str,
-    # user = Depends(get_current_user_ws),
+    token: str = Query(...)
+    
 ):
     # 1) проверить доступ (owner/share)
     # if not await user_has_access(user.id, desk_id):
     #     await ws.close(code=1008)
     #     return
+
+    payload = verify_token(token, "access")
+    if not payload:
+        await ws.close(code=4001, reason="Invalid token")
+        return
+
+    user_id_str = payload.get("user_id")
+    if not user_id_str:
+        await ws.close(code=4001, reason="Invalid token payload")
+        return
+
+    try:
+        user_id = uuid.UUID(user_id_str)
+        desk_uuid = uuid.UUID(desk_id)
+    except ValueError:
+        await ws.close(code=4000, reason="Invalid UUID format")
+        return
 
     await manager.connect(desk_id, ws)
 

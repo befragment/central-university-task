@@ -3,6 +3,7 @@ import datetime
 
 from pydantic import BaseModel, EmailStr, UUID4
 
+
 class LoginRequest(BaseModel):
     email: EmailStr
     password: str
@@ -14,13 +15,29 @@ class RegisterRequest(BaseModel):
     name: str
 
 
+class User(BaseModel):
+    id: UUID4
+    name: str
+    email: EmailStr
+
+
+class Users(BaseModel):
+    users: list[User]
+
+
 class RefreshTokenRequest(BaseModel):
     refresh_token: str 
 
 
-class TokenResponse(BaseModel):
+class Tokens(BaseModel):
     access_token: str
     refresh_token: str 
+
+
+class LoginResponse(BaseModel):
+    user: User
+    access_token: str
+    refresh_token: str
 
 
 class DeskCreateRequest(BaseModel):
@@ -59,16 +76,6 @@ class Desk(BaseModel):
 class DesksResponseWithTotal(BaseModel):
     desks: list[Desk]
     total: int
-
-
-class User(BaseModel):
-    id: UUID4
-    name: str
-    email: EmailStr
-
-
-class Users(BaseModel):
-    users: list[User]
 
 
 class DeskOwner(BaseModel):
