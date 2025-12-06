@@ -21,10 +21,17 @@ def create_app() -> FastAPI:
         title=settings.PROJECT_NAME,
         lifespan=lifespan,
     )
+    origins = [
+        "http://localhost.tiangolo.com",
+        "https://localhost.tiangolo.com",
+        "http://localhost",
+        "http://localhost:8080",
+        "http://localhost:3000",
+    ]
     app.include_router(api_router, prefix=settings.API_V1_STR)
     app.add_middleware(
         CORSMiddleware,
-        allow_origins=settings.all_cors_origins,
+        allow_origins=origins,
         allow_credentials=True,
         allow_methods=["*"],
         allow_headers=["*"],
