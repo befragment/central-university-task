@@ -1,3 +1,8 @@
+from uuid import UUID
+from http import HTTPStatus
+from fastapi import APIRouter, Depends, Query, HTTPException
+
+from api.dependencies import get_current_user, get_desk_repo, get_deskshare_repo
 from pydantic import UUID4
 from http import HTTPStatus
 
@@ -10,6 +15,12 @@ from api.dto import (
     DeskCreateRequest, 
     DesksResponseWithTotal,
     DeskUpdateRequest,
+    Share, Shares,
+    UserDTO
+)
+from model import User
+from repository import DeskRepository
+from repository import DeskShareRepository
 )
 
 from repository import DeskRepository
@@ -70,59 +81,80 @@ async def update_desk(
     if desk.owner_id != current_user.id:
         raise HTTPException(status_code=HTTPStatus.FORBIDDEN)
 
-    result = await desk_repo.update(
-        desk_id=desk_id,
-        name=request.name,
+@router.get("/{desk_id}/shares", response_model=Shares)
+async def get_desk_shares(
+    desk_id: UUID,
+    current_user: User = Depends(get_current_user),
+    desk_repo: DeskRepository = Depends(get_desk_repo),
+    deskshare_repo: DeskShareRepository = Depends(get_deskshare_repo),
+):
+    is_owned = await desk_repo.is_owned_by_user(desk_id, current_user.id)
+    if not is_owned:
+        raise HTTPException(status_code=403, detail="FORBIDDEN")
+
+    shares_rows = await deskshare_repo.get_shares_with_users(desk_id)
+
+    return Shares(
+        shares=[
+            Share(
+                id=row.id,
+                user=UserDTO(
+                    id=row.user.id,
+                    name=row.user.name,
+                    email=row.user.email,
+                ),
+                created_at=row.created_at,
+            )
+            for row in shares_rows
+        ]
     )
 
     if not result:
         raise HTTPException(status_code=HTTPStatus.NOT_FOUND)
 
-    updated_desk = await desk_repo.get_by_id(desk_id=desk_id)
-    return updated_desk
-
-
-@router.get("/", response_model=DesksResponseWithTotal)
-async def get_my_desks(
-    limit: int = Query(5, ge=1, le=100),
-    offset: int = Query(0, ge=0),
+@router.post("/{desk_id}/shares", response_model=Share)
+async def share_desk_with_user(
+    desk_id: UUID,
+    user_id: UUID,
+    current_user: User = Depends(get_current_user),
     desk_repo: DeskRepository = Depends(get_desk_repo),
-    current_user: UserORM = Depends(get_current_user),
+    deskshare_repo: DeskShareRepository = Depends(get_deskshare_repo)
 ):
-    total = await desk_repo.count_owned_by_user(current_user.id)
-    desks = await desk_repo.get_owned_by_user_paginated(
-        user_id=current_user.id,
-        limit=limit,
-        offset=offset,
+    is_owned = await desk_repo.is_owned_by_user(desk_id, current_user.id)
+    if not is_owned:
+        raise HTTPException(status_code=403, detail="FORBIDDEN")
+
+    row = await deskshare_repo.add_user_to_desk_share(desk_id, user_id)
+
+    return Share(
+        id=row.id,
+        user=UserDTO(
+            id=row.user.id,
+            name=row.user.name,
+            email=row.user.email,
+        ),
+        created_at=row.created_at,
     )
 
-    return DesksResponseWithTotal(
-        desks=desks,
-        total=total,
-    )
 
-# @router.get("/shared", response_model=SharedDesksWithTotal)
-# async def get_shared_desks(
-#     limit: int = Query(5, ge=0, le=100),
-#     offset: int = Query(0, ge=0),
-# ):
-#     return SharedDesksWithTotal
-
-
-# @router.get("/{desk_id}/shares", response_model=Shares)
-# async def get_shares_of_desk():
-#     return Shares
-
-
-# @router.post("/{desk_id}/shares", response_model=Share)
-# async def share_desk_with_user():
-#     return Share
+@router.delete("/{desk_id}/shares/{user_id}", status_code=HTTPStatus.NO_CONTENT)
+async def revoke_desk_access(
+    desk_id: UUID,
+    user_id: UUID,
+    current_user: User = Depends(get_current_user),
+    desk_repo: DeskRepository = Depends(get_desk_repo),
+    deskshare_repo: DeskShareRepository = Depends(get_deskshare_repo)
+):
+    is_owned = desk_repo.is_owned_by_user(desk_id, current_user.id)
+    if not is_owned:
+        raise HTTPException(status_code=403, detail="FORBIDDEN")
+    
+    if user_id == current_user.id:
+        raise HTTPException(status_code=400, detail="CANNOT_REVOKE_OWNER")
+    
+    await deskshare_repo.delete_user_from_desk_share(desk_id, user_id)
 
 
-# @router.delete("/{desk_id}/shares/{user_id}", status_code=HTTPStatus.NO_CONTENT)
-# async def revoke_desk_access(
-#     desk_id: int,
-#     user_id: int,
-#     current_user: User = Depends(get_current_user)
-# ):
-#     return
+
+
+

@@ -15,14 +15,16 @@ class RegisterRequest(BaseModel):
     name: str
 
 
-class User(BaseModel):
+class UserDTO(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
     id: UUID4
     name: str
     email: EmailStr
 
 
 class Users(BaseModel):
-    users: list[User]
+    users: list[UserDTO]
 
 
 class RefreshTokenRequest(BaseModel):
@@ -35,7 +37,7 @@ class Tokens(BaseModel):
 
 
 class LoginResponse(BaseModel):
-    user: User
+    user: UserDTO
     access_token: str
     refresh_token: str
 
@@ -102,7 +104,7 @@ class SharedDesksWithTotal(BaseModel):
 class Share(BaseModel):
     # Share as an entity 
     id: UUID4
-    user: User
+    user: UserDTO
     created_at: datetime.datetime
 
 
