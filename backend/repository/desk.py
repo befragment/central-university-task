@@ -2,6 +2,7 @@ from uuid import UUID
 from datetime import date
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, update, delete, exists
+from sqlalchemy import select, update, delete, func
 from model.desk import Desk, DeskDetail, DeskShare
 
 
@@ -49,4 +50,25 @@ class DeskRepository:
         result = await self.session.execute(stmt)
         await self.session.commit()
         return result.rowcount > 0
-
+    
+    async def count_owned_by_user(self, user_id: UUID) -> int:
+        stmt = select(func.count()).select_from(
+            select(Desk).where(Desk.owner_id == user_id).subquery()
+        )
+        result = await self.session.execute(stmt)
+        return result.scalar_one()
+    
+    async def get_owned_by_user_paginated(
+        self,
+        user_id: UUID,
+        limit: int,
+        offset: int,
+    ) -> list[Desk]:
+        stmt = (
+            select(Desk)
+            .where(Desk.owner_id == user_id)
+            .offset(offset)
+            .limit(limit)
+        )
+        result = await self.session.execute(stmt)
+        return list(result.scalars())
