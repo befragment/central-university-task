@@ -76,7 +76,16 @@ async def update_desk(
     if desk.owner_id != current_user.id:
         raise HTTPException(status_code=HTTPStatus.FORBIDDEN)
     
-    return 
+    result = await desk_repo.update(
+        desk_id=desk_id,
+        name=request.name,
+    )
+
+    if not result:
+        raise HTTPException(status_code=HTTPStatus.NOT_FOUND)
+
+    updated_desk = await desk_repo.get_by_id(desk_id=desk_id)
+    return updated_desk
 
 
 @router.get("/{desk_id}/shares", response_model=Shares)
