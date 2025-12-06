@@ -9,7 +9,12 @@ class DeskConnectionManager:
         self._desks: Dict[str, Set[WebSocket]] = {}
 
     async def connect(self, desk_id: str, ws: WebSocket) -> None:
+        """Accept WebSocket and add to desk connections."""
         await ws.accept()
+        self._desks.setdefault(desk_id, set()).add(ws)
+
+    def add_connection(self, desk_id: str, ws: WebSocket) -> None:
+        """Add already-accepted WebSocket to desk connections."""
         self._desks.setdefault(desk_id, set()).add(ws)
 
     def disconnect(self, desk_id: str, ws: WebSocket) -> None:

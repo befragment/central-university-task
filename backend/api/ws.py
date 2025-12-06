@@ -12,17 +12,20 @@ from repository.desk_share import DeskShareRepository
 from model import DeskDetail
 from api.utils import sticker_to_dict
 
-router = APIRouter(prefix="/desk", tags=["desk"])
+router = APIRouter(tags=["websocket"])
 
 
 @router.websocket("/desk/{desk_id}")
 async def desk_ws(
-    ws: WebSocket,
-    desk_id: str,
-    token: str = Query(...),
-    share_repo: DeskShareRepository = Depends(get_deskshare_repo),
-    detail_repo: DeskDetailRepository = Depends(get_deskdetail_repo)
+        ws: WebSocket,
+        desk_id: str,
+        token: str = Query(...),
+        share_repo: DeskShareRepository = Depends(get_deskshare_repo),
+        detail_repo: DeskDetailRepository = Depends(get_deskdetail_repo)
 ):
+    # Сначала принимаем WebSocket, чтобы можно было отправить close code
+    await ws.accept()
+
     payload = verify_token(token, "access")
     if not payload:
         await ws.close(code=4001, reason="Invalid token")
@@ -39,23 +42,25 @@ async def desk_ws(
     except ValueError:
         await ws.close(code=4000, reason="Invalid UUID format")
         return
-    
+
     has_access = await share_repo.has_access(user_id, desk_uuid)
 
     if not has_access:
         await ws.close(code=4003, reason="Access denied")
         return
 
-    await manager.connect(desk_id, ws)
-
-    stickers = await detail_repo.get_by_desk_id(desk_uuid)
-
-    await ws.send_json({
-        "event": "desk:init",
-        "data": {"stickers": stickers},
-    })
+    # Регистрируем соединение (без повторного accept)
+    manager.add_connection(desk_id, ws)
 
     try:
+        stickers = await detail_repo.get_by_desk_id(desk_uuid)
+        stickers_data = [sticker_to_dict(s) for s in stickers]
+
+        await ws.send_json({
+            "event": "desk:init",
+            "data": {"stickers": stickers_data},
+        })
+
         while True:
             msg = await ws.receive_json()
             event = msg.get("event")
@@ -92,11 +97,11 @@ async def desk_ws(
 
 
 async def handle_sticker_create(
-    ws: WebSocket,
-    desk_id: str,
-    desk_uuid: uuid.UUID,
-    data: dict,
-    repo: DeskDetailRepository,
+        ws: WebSocket,
+        desk_id: str,
+        desk_uuid: uuid.UUID,
+        data: dict,
+        repo: DeskDetailRepository,
 ):
     temp_id = data.get("temp_id")
     coord = data.get("coord", {"x": 0, "y": 0})
@@ -127,11 +132,11 @@ async def handle_sticker_create(
 
 
 async def handle_sticker_update(
-    ws: WebSocket,
-    desk_id: str,
-    desk_uuid: uuid.UUID,
-    data: dict,
-    repo: DeskDetailRepository,
+        ws: WebSocket,
+        desk_id: str,
+        desk_uuid: uuid.UUID,
+        data: dict,
+        repo: DeskDetailRepository,
 ):
     sticker_id_str = data.get("sticker_id")
     if not sticker_id_str:
@@ -184,11 +189,11 @@ async def handle_sticker_update(
 
 
 async def handle_sticker_delete(
-    ws: WebSocket,
-    desk_id: str,
-    desk_uuid: uuid.UUID,
-    data: dict,
-    repo: DeskDetailRepository,
+        ws: WebSocket,
+        desk_id: str,
+        desk_uuid: uuid.UUID,
+        data: dict,
+        repo: DeskDetailRepository,
 ):
     sticker_id_str = data.get("sticker_id")
     if not sticker_id_str:
