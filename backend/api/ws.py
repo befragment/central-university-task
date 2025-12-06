@@ -10,10 +10,10 @@ from api.dependencies import get_deskdetail_repo, get_deskshare_repo
 from repository.desk_detail import DeskDetailRepository
 from repository.desk_share import DeskShareRepository
 from model import DeskDetail
+from api.utils import sticker_to_dict
 
 router = APIRouter(prefix="/desk", tags=["desk"])
 
-def sticker_to_dict(data): pass
 
 @router.websocket("/desk/{desk_id}")
 async def desk_ws(

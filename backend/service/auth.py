@@ -67,7 +67,7 @@ class AuthService:
         )
         user = await self.user_repository.create(user)
 
-        payload = {"sub": str(user.id), "email": user.email, "role": ""}
+        payload = {"sub": str(user.id)}
         access = create_access_token(payload)
         refresh = create_refresh_token(payload)
 
